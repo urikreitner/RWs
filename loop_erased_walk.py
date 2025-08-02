@@ -44,32 +44,65 @@ def loop_erased_random_walk(x_positions, y_positions):
     else:
         return [], []
 
-def get_convex_hull(x_positions, y_positions):
+def get_outer_boundary(x_positions, y_positions):
     """
-    Get the convex hull (outer boundary) of the random walk points.
+    Get the actual outer boundary of the random walk by finding the perimeter
+    of the visited points (not just the convex hull).
     
     Args:
         x_positions: List of x coordinates
         y_positions: List of y coordinates
         
     Returns:
-        Tuple of (hull_x, hull_y) coordinates of convex hull
+        Tuple of (boundary_x, boundary_y) coordinates of outer boundary
     """
-    from scipy.spatial import ConvexHull
-    
     if len(x_positions) < 3:
         return x_positions, y_positions
     
-    points = np.column_stack((x_positions, y_positions))
+    # Create a set of all visited points
+    points = set(zip(x_positions, y_positions))
     
-    try:
-        hull = ConvexHull(points)
-        hull_points = points[hull.vertices]
-        # Close the hull by adding the first point at the end
-        hull_points = np.vstack([hull_points, hull_points[0]])
-        return hull_points[:, 0], hull_points[:, 1]
-    except:
-        # If convex hull fails (e.g., all points collinear), return original points
+    # Find boundary points - points that have at least one neighbor not in the set
+    boundary_points = []
+    
+    for x, y in points:
+        # Check 8-connected neighbors
+        neighbors = [
+            (x-1, y-1), (x, y-1), (x+1, y-1),
+            (x-1, y),             (x+1, y),
+            (x-1, y+1), (x, y+1), (x+1, y+1)
+        ]
+        
+        # If any neighbor is not visited, this is a boundary point
+        is_boundary = any(neighbor not in points for neighbor in neighbors)
+        
+        if is_boundary:
+            boundary_points.append((x, y))
+    
+    if not boundary_points:
+        return x_positions, y_positions
+    
+    # Sort boundary points to create a connected path
+    # Start from leftmost point, then go counterclockwise
+    boundary_points.sort(key=lambda p: (p[0], p[1]))
+    start_point = boundary_points[0]
+    
+    # Order points by angle from start point to create a closed boundary
+    def angle_from_start(point):
+        dx = point[0] - start_point[0]
+        dy = point[1] - start_point[1]
+        return np.arctan2(dy, dx)
+    
+    boundary_points.sort(key=angle_from_start)
+    
+    # Close the boundary
+    if boundary_points and boundary_points[0] != boundary_points[-1]:
+        boundary_points.append(boundary_points[0])
+    
+    if boundary_points:
+        boundary_x, boundary_y = zip(*boundary_points)
+        return list(boundary_x), list(boundary_y)
+    else:
         return x_positions, y_positions
 
 def create_loop_erased_visualization():
@@ -79,38 +112,15 @@ def create_loop_erased_visualization():
     random.seed(123)
     np.random.seed(123)
     
-    # Generate a 2D random walk
-    steps = 2000
+    # Generate a 2D random walk with many more steps
+    steps = 10000
     x_original, y_original = random_walk_2d(steps)
     
     # Perform loop erasure
     x_erased, y_erased = loop_erased_random_walk(x_original, y_original)
     
-    # Get convex hull (outer boundary)
-    try:
-        # Try to import scipy for convex hull
-        from scipy.spatial import ConvexHull
-        hull_x, hull_y = get_convex_hull(x_original, y_original)
-        has_scipy = True
-    except ImportError:
-        # Fallback: create approximate boundary using min/max points
-        has_scipy = False
-        min_x, max_x = min(x_original), max(x_original)
-        min_y, max_y = min(y_original), max(y_original)
-        
-        # Find points closest to corners
-        corners = [(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)]
-        boundary_points = []
-        
-        for corner_x, corner_y in corners:
-            distances = [(x - corner_x)**2 + (y - corner_y)**2 
-                        for x, y in zip(x_original, y_original)]
-            closest_idx = distances.index(min(distances))
-            boundary_points.append((x_original[closest_idx], y_original[closest_idx]))
-        
-        # Close the boundary
-        boundary_points.append(boundary_points[0])
-        hull_x, hull_y = zip(*boundary_points)
+    # Get the actual outer boundary of visited points
+    boundary_x, boundary_y = get_outer_boundary(x_original, y_original)
     
     # Create the visualization
     plt.figure(figsize=(12, 10))
@@ -119,10 +129,9 @@ def create_loop_erased_visualization():
     plt.plot(x_original, y_original, color='lightgray', linewidth=0.5, alpha=0.7, 
              label=f'Original Walk ({len(x_original)} steps)')
     
-    # Plot convex hull / outer boundary (blue, thick line)
-    boundary_label = 'Convex Hull' if has_scipy else 'Approximate Boundary'
-    plt.plot(hull_x, hull_y, color='blue', linewidth=3, alpha=0.8, 
-             label=boundary_label)
+    # Plot outer boundary (blue, thick line)
+    plt.plot(boundary_x, boundary_y, color='blue', linewidth=2, alpha=0.8, 
+             label='Outer Boundary')
     
     # Plot loop-erased path (red, medium line)
     plt.plot(x_erased, y_erased, color='red', linewidth=2, alpha=0.9,
@@ -152,7 +161,7 @@ def create_loop_erased_visualization():
 Original steps: {original_length}
 Loop-erased steps: {erased_length}
 Reduction: {reduction_percent:.1f}%
-Boundary method: {boundary_label}"""
+Boundary points: {len(boundary_x)}"""
     
     plt.text(0.02, 0.98, stats_text, transform=plt.gca().transAxes, 
              verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
@@ -167,7 +176,7 @@ Boundary method: {boundary_label}"""
     print(f"- Reduction: {reduction_percent:.1f}%")
     print(f"- Image saved as: images/loop_erased_walk.png")
     
-    return x_original, y_original, x_erased, y_erased, hull_x, hull_y
+    return x_original, y_original, x_erased, y_erased, boundary_x, boundary_y
 
 if __name__ == "__main__":
     create_loop_erased_visualization()

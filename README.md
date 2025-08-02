@@ -89,12 +89,12 @@ Comprehensive statistical analysis including:
 ![Loop-Erased Walk](images/loop_erased_walk.png)
 
 This visualization demonstrates loop erasure on a 2D random walk, showing:
-- **Gray path**: Original random walk (2000+ steps)
-- **Blue boundary**: Convex hull (outer boundary) of all visited points
-- **Red path**: Loop-erased walk (~200 steps, 90% reduction)
+- **Gray path**: Original random walk (10,000+ steps)
+- **Blue boundary**: Actual outer boundary of all visited points (not convex hull)
+- **Red path**: Loop-erased walk (~300 steps, 97% reduction)
 - Loop erasure removes all cycles, creating a self-avoiding path from start to end
 
-Loop-erased random walks are important in probability theory and have connections to uniform spanning trees and the Laplacian random walk.
+The outer boundary traces the perimeter of the visited region, showing the true shape explored by the walk. Loop-erased random walks are important in probability theory and have connections to uniform spanning trees and the Laplacian random walk.
 
 ## Example Output
 
