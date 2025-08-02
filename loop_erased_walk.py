@@ -46,8 +46,8 @@ def loop_erased_random_walk(x_positions, y_positions):
 
 def get_outer_boundary(x_positions, y_positions):
     """
-    Get the actual outer boundary of the random walk by finding the perimeter
-    of the visited points (not just the convex hull).
+    Get the actual outer boundary by finding all points on the perimeter
+    of the visited region and connecting them in a meaningful way.
     
     Args:
         x_positions: List of x coordinates
@@ -62,48 +62,66 @@ def get_outer_boundary(x_positions, y_positions):
     # Create a set of all visited points
     points = set(zip(x_positions, y_positions))
     
-    # Find boundary points - points that have at least one neighbor not in the set
+    # Find boundary points - points that have at least one 4-connected neighbor not in the set
     boundary_points = []
     
     for x, y in points:
-        # Check 8-connected neighbors
-        neighbors = [
-            (x-1, y-1), (x, y-1), (x+1, y-1),
-            (x-1, y),             (x+1, y),
-            (x-1, y+1), (x, y+1), (x+1, y+1)
-        ]
+        # Check 4-connected neighbors (N, S, E, W only for cleaner boundary)
+        neighbors = [(x, y-1), (x, y+1), (x+1, y), (x-1, y)]
         
         # If any neighbor is not visited, this is a boundary point
-        is_boundary = any(neighbor not in points for neighbor in neighbors)
-        
-        if is_boundary:
+        if any(neighbor not in points for neighbor in neighbors):
             boundary_points.append((x, y))
     
-    if not boundary_points:
+    if len(boundary_points) < 3:
         return x_positions, y_positions
     
-    # Sort boundary points to create a connected path
-    # Start from leftmost point, then go counterclockwise
-    boundary_points.sort(key=lambda p: (p[0], p[1]))
-    start_point = boundary_points[0]
+    # Instead of trying to trace a single boundary, let's create a proper 
+    # alpha shape or concave hull that shows the true outer boundary
     
-    # Order points by angle from start point to create a closed boundary
-    def angle_from_start(point):
-        dx = point[0] - start_point[0]
-        dy = point[1] - start_point[1]
-        return np.arctan2(dy, dx)
+    # Simple approach: use all boundary points and create a tighter boundary
+    # by connecting nearby boundary points
     
-    boundary_points.sort(key=angle_from_start)
+    def distance(p1, p2):
+        return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
     
-    # Close the boundary
-    if boundary_points and boundary_points[0] != boundary_points[-1]:
-        boundary_points.append(boundary_points[0])
+    # Start from the leftmost point
+    start_point = min(boundary_points, key=lambda p: (p[0], p[1]))
+    ordered_boundary = [start_point]
+    remaining = set(boundary_points) - {start_point}
     
-    if boundary_points:
-        boundary_x, boundary_y = zip(*boundary_points)
+    current = start_point
+    
+    # Connect points by always choosing the nearest unvisited boundary point
+    # that's within a reasonable distance
+    while remaining:
+        # Find nearest remaining point
+        nearest = min(remaining, key=lambda p: distance(current, p))
+        
+        # Only connect if it's reasonably close (prevents jumping across gaps)
+        if distance(current, nearest) <= 5.0:  # Adjust threshold as needed
+            ordered_boundary.append(nearest)
+            remaining.remove(nearest)
+            current = nearest
+        else:
+            # If no close point, start a new component from the leftmost remaining
+            if remaining:
+                new_start = min(remaining, key=lambda p: (p[0], p[1]))
+                ordered_boundary.append(new_start)
+                remaining.remove(new_start)
+                current = new_start
+    
+    # Close the boundary by connecting back to start
+    if ordered_boundary and len(ordered_boundary) > 2:
+        ordered_boundary.append(ordered_boundary[0])
+    
+    if ordered_boundary:
+        boundary_x, boundary_y = zip(*ordered_boundary)
         return list(boundary_x), list(boundary_y)
-    else:
-        return x_positions, y_positions
+    
+    # Fallback to all boundary points if connection failed
+    boundary_x, boundary_y = zip(*boundary_points) if boundary_points else ([], [])
+    return list(boundary_x), list(boundary_y)
 
 def create_loop_erased_visualization():
     """Create visualization showing original walk, convex hull, and loop-erased path."""
