@@ -46,8 +46,8 @@ def loop_erased_random_walk(x_positions, y_positions):
 
 def get_outer_boundary(x_positions, y_positions):
     """
-    Get the actual outer boundary using contour detection on a 2D grid.
-    This gives the true perimeter of the visited region.
+    Get the actual outer boundary using Moore neighborhood boundary following.
+    This traces the true perimeter of the visited region without crossing lines.
     
     Args:
         x_positions: List of x coordinates
@@ -59,84 +59,106 @@ def get_outer_boundary(x_positions, y_positions):
     if len(x_positions) < 3:
         return x_positions, y_positions
     
-    # Create a 2D grid representation
-    min_x, max_x = min(x_positions), max(x_positions)
-    min_y, max_y = min(y_positions), max(y_positions)
+    # Create a set of visited points for O(1) lookup
+    visited = set(zip(x_positions, y_positions))
     
-    # Add padding
-    padding = 2
-    min_x -= padding
-    max_x += padding
-    min_y -= padding
-    max_y += padding
+    # Find the starting point (leftmost, then topmost)
+    start_point = min(visited, key=lambda p: (p[0], p[1]))
+    start_x, start_y = start_point
     
-    width = max_x - min_x + 1
-    height = max_y - min_y + 1
+    # Moore neighborhood directions (8-connected, starting from right and going clockwise)
+    directions = [
+        (1, 0),   # East
+        (1, 1),   # Southeast  
+        (0, 1),   # South
+        (-1, 1),  # Southwest
+        (-1, 0),  # West
+        (-1, -1), # Northwest
+        (0, -1),  # North
+        (1, -1),  # Northeast
+    ]
     
-    # Create grid where visited points are 1, unvisited are 0
-    grid = np.zeros((height, width))
+    boundary_points = []
+    current_x, current_y = start_x, start_y
     
-    for x, y in zip(x_positions, y_positions):
-        grid_x = x - min_x
-        grid_y = y - min_y
-        grid[grid_y, grid_x] = 1
+    # Find initial direction: look for first unvisited neighbor
+    current_dir = 0  # Start looking East
     
-    # Use matplotlib contour to find the boundary
-    import matplotlib.pyplot as plt
-    from matplotlib import pyplot
+    # Find the first boundary edge
+    for i in range(8):
+        dx, dy = directions[i]
+        neighbor = (current_x + dx, current_y + dy)
+        if neighbor not in visited:
+            current_dir = i
+            break
     
-    # Create coordinate arrays
-    x_coords = np.arange(min_x, max_x + 1)
-    y_coords = np.arange(min_y, max_y + 1)
-    X, Y = np.meshgrid(x_coords, y_coords)
+    # Now trace the boundary using Moore neighborhood following
+    max_iterations = len(visited) * 4  # Prevent infinite loops
+    iterations = 0
     
-    # Find contour at level 0.5 (boundary between visited and unvisited)
-    try:
-        contours = plt.contour(X, Y, grid, levels=[0.5])
+    while iterations < max_iterations:
+        boundary_points.append((current_x, current_y))
         
-        # Extract the longest contour (main boundary)
-        boundary_x, boundary_y = [], []
-        max_length = 0
+        # Look for next boundary point
+        found_next = False
         
-        for collection in contours.collections:
-            for path in collection.get_paths():
-                vertices = path.vertices
-                if len(vertices) > max_length:
-                    max_length = len(vertices)
-                    boundary_x = vertices[:, 0].tolist()
-                    boundary_y = vertices[:, 1].tolist()
+        # Start searching from two positions back from current direction
+        search_start = (current_dir - 2) % 8
         
-        plt.close()  # Clean up the figure
-        
-        if boundary_x and boundary_y:
-            return boundary_x, boundary_y
+        for i in range(8):
+            dir_idx = (search_start + i) % 8
+            dx, dy = directions[dir_idx]
+            next_x, next_y = current_x + dx, current_y + dy
             
-    except Exception as e:
-        plt.close()  # Ensure cleanup even if error occurs
-    
-    # Fallback: use the boundary points approach
-    points = set(zip(x_positions, y_positions))
-    boundary_pts = []
-    
-    for x, y in points:
-        # Check 4-connected neighbors
-        neighbors = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
-        if any(neighbor not in points for neighbor in neighbors):
-            boundary_pts.append((x, y))
-    
-    if len(boundary_pts) >= 3:
-        # Sort by angle from center for a reasonable boundary
-        center_x = sum(x for x, y in boundary_pts) / len(boundary_pts)
-        center_y = sum(y for x, y in boundary_pts) / len(boundary_pts)
+            if (next_x, next_y) in visited:
+                # Found next visited point - this is our next boundary point
+                current_x, current_y = next_x, next_y
+                current_dir = dir_idx
+                found_next = True
+                break
         
-        def angle_from_center(point):
-            x, y = point
-            return np.arctan2(y - center_y, x - center_x)
+        if not found_next:
+            break
+            
+        # Check if we've returned to the start
+        if (current_x, current_y) == start_point and len(boundary_points) > 3:
+            break
+            
+        iterations += 1
+    
+    # If boundary following didn't work well, use a simpler approach
+    if len(boundary_points) < 4 or iterations >= max_iterations:
+        # Fallback: find all perimeter points and sort them radially
+        perimeter_points = []
         
-        boundary_pts.sort(key=angle_from_center)
-        boundary_pts.append(boundary_pts[0])  # Close the boundary
+        for x, y in visited:
+            # Check if this point has at least one unvisited 4-connected neighbor
+            neighbors = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+            if any(neighbor not in visited for neighbor in neighbors):
+                perimeter_points.append((x, y))
         
-        boundary_x, boundary_y = zip(*boundary_pts)
+        if len(perimeter_points) >= 3:
+            # Sort by angle from centroid
+            cx = sum(x for x, y in perimeter_points) / len(perimeter_points)
+            cy = sum(y for x, y in perimeter_points) / len(perimeter_points)
+            
+            def angle_from_center(point):
+                x, y = point
+                return np.arctan2(y - cy, x - cx)
+            
+            perimeter_points.sort(key=angle_from_center)
+            perimeter_points.append(perimeter_points[0])  # Close the boundary
+            
+            boundary_x, boundary_y = zip(*perimeter_points)
+            return list(boundary_x), list(boundary_y)
+    
+    # Return the traced boundary
+    if boundary_points:
+        # Close the boundary if not already closed
+        if boundary_points[-1] != boundary_points[0]:
+            boundary_points.append(boundary_points[0])
+        
+        boundary_x, boundary_y = zip(*boundary_points)
         return list(boundary_x), list(boundary_y)
     
     return x_positions, y_positions
