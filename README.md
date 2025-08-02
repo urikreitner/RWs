@@ -90,11 +90,11 @@ Comprehensive statistical analysis including:
 
 This visualization demonstrates loop erasure on a 2D random walk, showing:
 - **Gray path**: Original random walk (10,000+ steps)
-- **Blue boundary**: Actual outer boundary of all visited points (not convex hull)
+- **Blue boundary**: True outer boundary using facial walk algorithm (O(N) linear time)
 - **Red path**: Loop-erased walk (~300 steps, 97% reduction)
 - Loop erasure removes all cycles, creating a self-avoiding path from start to end
 
-The outer boundary traces the perimeter of the visited region, showing the true shape explored by the walk. Loop-erased random walks are important in probability theory and have connections to uniform spanning trees and the Laplacian random walk.
+The outer boundary uses the "right-hand rule" facial walk algorithm from SLE research - the same method used to study Brownian frontiers and SLE₈/₃ processes. This linear-time algorithm traces the boundary of the unbounded face in the planar graph formed by the walk, giving the mathematically correct outer frontier. Loop-erased random walks are important in probability theory and have connections to uniform spanning trees and the Laplacian random walk.
 
 ## Example Output
 

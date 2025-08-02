@@ -46,119 +46,74 @@ def loop_erased_random_walk(x_positions, y_positions):
 
 def get_outer_boundary(x_positions, y_positions):
     """
-    Get the actual outer boundary using Moore neighborhood boundary following.
-    This traces the true perimeter of the visited region without crossing lines.
+    Get the actual outer boundary using the facial walk algorithm for planar graphs.
+    This is a linear-time O(N) algorithm that traces the boundary of the unbounded face.
+    
+    Based on the right-hand rule facial walk algorithm used for extracting
+    outer boundaries of random walks in SLE research.
     
     Args:
-        x_positions: List of x coordinates
-        y_positions: List of y coordinates
+        x_positions: List of x coordinates of the walk
+        y_positions: List of y coordinates of the walk
         
     Returns:
         Tuple of (boundary_x, boundary_y) coordinates of outer boundary
     """
+    import math
+    from collections import defaultdict
+    
     if len(x_positions) < 3:
         return x_positions, y_positions
     
-    # Create a set of visited points for O(1) lookup
-    visited = set(zip(x_positions, y_positions))
+    # Convert walk to list of vertices
+    walk = list(zip(x_positions, y_positions))
     
-    # Find the starting point (leftmost, then topmost)
-    start_point = min(visited, key=lambda p: (p[0], p[1]))
-    start_x, start_y = start_point
+    # 0. Build adjacency (each undirected edge stored once)
+    adj = defaultdict(set)
+    for a, b in zip(walk, walk[1:]):
+        if a == b:  # ignore null steps if any
+            continue
+        adj[a].add(b)
+        adj[b].add(a)
     
-    # Moore neighborhood directions (8-connected, starting from right and going clockwise)
-    directions = [
-        (1, 0),   # East
-        (1, 1),   # Southeast  
-        (0, 1),   # South
-        (-1, 1),  # Southwest
-        (-1, 0),  # West
-        (-1, -1), # Northwest
-        (0, -1),  # North
-        (1, -1),  # Northeast
-    ]
+    if not adj:
+        return x_positions, y_positions
     
-    boundary_points = []
-    current_x, current_y = start_x, start_y
+    # 1. Pick deterministic starting vertex v0 (lowest y, then x)
+    v0 = min(adj.keys(), key=lambda p: (p[1], p[0]))
+    incoming = (0, -1)  # start "pointing south"
     
-    # Find initial direction: look for first unvisited neighbor
-    current_dir = 0  # Start looking East
+    def angle(ccw_from, to):
+        """Signed angle in [0, 2π) between vectors 'ccw_from'→'to' CCW-wise"""
+        dx1, dy1 = ccw_from
+        dx2, dy2 = to
+        phi1 = math.atan2(dy1, dx1)
+        phi2 = math.atan2(dy2, dx2)
+        a = phi2 - phi1
+        return a if a >= 0 else a + 2*math.pi
     
-    # Find the first boundary edge
-    for i in range(8):
-        dx, dy = directions[i]
-        neighbor = (current_x + dx, current_y + dy)
-        if neighbor not in visited:
-            current_dir = i
-            break
-    
-    # Now trace the boundary using Moore neighborhood following
-    max_iterations = len(visited) * 4  # Prevent infinite loops
+    boundary = [v0]
+    v = v0
+    max_iterations = len(adj) * 4  # Safety limit
     iterations = 0
     
     while iterations < max_iterations:
-        boundary_points.append((current_x, current_y))
-        
-        # Look for next boundary point
-        found_next = False
-        
-        # Start searching from two positions back from current direction
-        search_start = (current_dir - 2) % 8
-        
-        for i in range(8):
-            dir_idx = (search_start + i) % 8
-            dx, dy = directions[dir_idx]
-            next_x, next_y = current_x + dx, current_y + dy
-            
-            if (next_x, next_y) in visited:
-                # Found next visited point - this is our next boundary point
-                current_x, current_y = next_x, next_y
-                current_dir = dir_idx
-                found_next = True
-                break
-        
-        if not found_next:
+        # 2. Among neighbors choose the one that gives *largest* clockwise turn
+        candidates = adj[v]
+        if not candidates:
             break
             
-        # Check if we've returned to the start
-        if (current_x, current_y) == start_point and len(boundary_points) > 3:
+        best = max(candidates, key=lambda w: angle(incoming, (w[0]-v[0], w[1]-v[1])))
+        incoming = (v[0]-best[0], v[1]-best[1])  # new incoming = -(chosen step)
+        v = best
+        
+        if v == v0:
             break
-            
+        boundary.append(v)
         iterations += 1
     
-    # If boundary following didn't work well, use a simpler approach
-    if len(boundary_points) < 4 or iterations >= max_iterations:
-        # Fallback: find all perimeter points and sort them radially
-        perimeter_points = []
-        
-        for x, y in visited:
-            # Check if this point has at least one unvisited 4-connected neighbor
-            neighbors = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
-            if any(neighbor not in visited for neighbor in neighbors):
-                perimeter_points.append((x, y))
-        
-        if len(perimeter_points) >= 3:
-            # Sort by angle from centroid
-            cx = sum(x for x, y in perimeter_points) / len(perimeter_points)
-            cy = sum(y for x, y in perimeter_points) / len(perimeter_points)
-            
-            def angle_from_center(point):
-                x, y = point
-                return np.arctan2(y - cy, x - cx)
-            
-            perimeter_points.sort(key=angle_from_center)
-            perimeter_points.append(perimeter_points[0])  # Close the boundary
-            
-            boundary_x, boundary_y = zip(*perimeter_points)
-            return list(boundary_x), list(boundary_y)
-    
-    # Return the traced boundary
-    if boundary_points:
-        # Close the boundary if not already closed
-        if boundary_points[-1] != boundary_points[0]:
-            boundary_points.append(boundary_points[0])
-        
-        boundary_x, boundary_y = zip(*boundary_points)
+    if boundary:
+        boundary_x, boundary_y = zip(*boundary)
         return list(boundary_x), list(boundary_y)
     
     return x_positions, y_positions
