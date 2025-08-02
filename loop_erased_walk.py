@@ -46,8 +46,8 @@ def loop_erased_random_walk(x_positions, y_positions):
 
 def get_outer_boundary(x_positions, y_positions):
     """
-    Get the actual outer boundary by finding all points on the perimeter
-    of the visited region and connecting them in a meaningful way.
+    Get the actual outer boundary using contour detection on a 2D grid.
+    This gives the true perimeter of the visited region.
     
     Args:
         x_positions: List of x coordinates
@@ -59,69 +59,87 @@ def get_outer_boundary(x_positions, y_positions):
     if len(x_positions) < 3:
         return x_positions, y_positions
     
-    # Create a set of all visited points
-    points = set(zip(x_positions, y_positions))
+    # Create a 2D grid representation
+    min_x, max_x = min(x_positions), max(x_positions)
+    min_y, max_y = min(y_positions), max(y_positions)
     
-    # Find boundary points - points that have at least one 4-connected neighbor not in the set
-    boundary_points = []
+    # Add padding
+    padding = 2
+    min_x -= padding
+    max_x += padding
+    min_y -= padding
+    max_y += padding
+    
+    width = max_x - min_x + 1
+    height = max_y - min_y + 1
+    
+    # Create grid where visited points are 1, unvisited are 0
+    grid = np.zeros((height, width))
+    
+    for x, y in zip(x_positions, y_positions):
+        grid_x = x - min_x
+        grid_y = y - min_y
+        grid[grid_y, grid_x] = 1
+    
+    # Use matplotlib contour to find the boundary
+    import matplotlib.pyplot as plt
+    from matplotlib import pyplot
+    
+    # Create coordinate arrays
+    x_coords = np.arange(min_x, max_x + 1)
+    y_coords = np.arange(min_y, max_y + 1)
+    X, Y = np.meshgrid(x_coords, y_coords)
+    
+    # Find contour at level 0.5 (boundary between visited and unvisited)
+    try:
+        contours = plt.contour(X, Y, grid, levels=[0.5])
+        
+        # Extract the longest contour (main boundary)
+        boundary_x, boundary_y = [], []
+        max_length = 0
+        
+        for collection in contours.collections:
+            for path in collection.get_paths():
+                vertices = path.vertices
+                if len(vertices) > max_length:
+                    max_length = len(vertices)
+                    boundary_x = vertices[:, 0].tolist()
+                    boundary_y = vertices[:, 1].tolist()
+        
+        plt.close()  # Clean up the figure
+        
+        if boundary_x and boundary_y:
+            return boundary_x, boundary_y
+            
+    except Exception as e:
+        plt.close()  # Ensure cleanup even if error occurs
+    
+    # Fallback: use the boundary points approach
+    points = set(zip(x_positions, y_positions))
+    boundary_pts = []
     
     for x, y in points:
-        # Check 4-connected neighbors (N, S, E, W only for cleaner boundary)
-        neighbors = [(x, y-1), (x, y+1), (x+1, y), (x-1, y)]
-        
-        # If any neighbor is not visited, this is a boundary point
+        # Check 4-connected neighbors
+        neighbors = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
         if any(neighbor not in points for neighbor in neighbors):
-            boundary_points.append((x, y))
+            boundary_pts.append((x, y))
     
-    if len(boundary_points) < 3:
-        return x_positions, y_positions
-    
-    # Instead of trying to trace a single boundary, let's create a proper 
-    # alpha shape or concave hull that shows the true outer boundary
-    
-    # Simple approach: use all boundary points and create a tighter boundary
-    # by connecting nearby boundary points
-    
-    def distance(p1, p2):
-        return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
-    
-    # Start from the leftmost point
-    start_point = min(boundary_points, key=lambda p: (p[0], p[1]))
-    ordered_boundary = [start_point]
-    remaining = set(boundary_points) - {start_point}
-    
-    current = start_point
-    
-    # Connect points by always choosing the nearest unvisited boundary point
-    # that's within a reasonable distance
-    while remaining:
-        # Find nearest remaining point
-        nearest = min(remaining, key=lambda p: distance(current, p))
+    if len(boundary_pts) >= 3:
+        # Sort by angle from center for a reasonable boundary
+        center_x = sum(x for x, y in boundary_pts) / len(boundary_pts)
+        center_y = sum(y for x, y in boundary_pts) / len(boundary_pts)
         
-        # Only connect if it's reasonably close (prevents jumping across gaps)
-        if distance(current, nearest) <= 5.0:  # Adjust threshold as needed
-            ordered_boundary.append(nearest)
-            remaining.remove(nearest)
-            current = nearest
-        else:
-            # If no close point, start a new component from the leftmost remaining
-            if remaining:
-                new_start = min(remaining, key=lambda p: (p[0], p[1]))
-                ordered_boundary.append(new_start)
-                remaining.remove(new_start)
-                current = new_start
-    
-    # Close the boundary by connecting back to start
-    if ordered_boundary and len(ordered_boundary) > 2:
-        ordered_boundary.append(ordered_boundary[0])
-    
-    if ordered_boundary:
-        boundary_x, boundary_y = zip(*ordered_boundary)
+        def angle_from_center(point):
+            x, y = point
+            return np.arctan2(y - center_y, x - center_x)
+        
+        boundary_pts.sort(key=angle_from_center)
+        boundary_pts.append(boundary_pts[0])  # Close the boundary
+        
+        boundary_x, boundary_y = zip(*boundary_pts)
         return list(boundary_x), list(boundary_y)
     
-    # Fallback to all boundary points if connection failed
-    boundary_x, boundary_y = zip(*boundary_points) if boundary_points else ([], [])
-    return list(boundary_x), list(boundary_y)
+    return x_positions, y_positions
 
 def create_loop_erased_visualization():
     """Create visualization showing original walk, convex hull, and loop-erased path."""
