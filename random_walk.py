@@ -24,7 +24,8 @@ def random_walk_1d(steps):
 
 def random_walk_2d(steps):
     """
-    Generate a 2D random walk.
+    Generate a 2D random walk on the integer lattice Z^2.
+    Uses 4-connected nearest-neighbor moves only (no diagonals).
     
     Args:
         steps: Number of steps to take
@@ -36,9 +37,11 @@ def random_walk_2d(steps):
     x_positions = [x]
     y_positions = [y]
     
+    # 4-connected moves: North, South, East, West
+    moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    
     for _ in range(steps):
-        dx = random.choice([-1, 0, 1])
-        dy = random.choice([-1, 0, 1])
+        dx, dy = random.choice(moves)
         x += dx
         y += dy
         x_positions.append(x)

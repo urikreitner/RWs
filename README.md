@@ -9,7 +9,7 @@ This project implements both 1D and 2D random walks with statistical analysis an
 ## Features
 
 - **1D Random Walk**: Simple one-dimensional movement with steps of +1 or -1
-- **2D Random Walk**: Two-dimensional movement with steps in 8 directions
+- **2D Random Walk**: Two-dimensional movement on Z² lattice with 4-connected nearest-neighbor steps
 - **Statistical Analysis**: Distance metrics and position tracking
 - **Visualization**: Matplotlib plots showing walk paths and trajectories
 - **Modular Design**: Easy to extend and modify for different walk types
