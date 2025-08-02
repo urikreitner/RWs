@@ -49,6 +49,13 @@ python generate_simulations.py
 
 This creates detailed visualization images saved in the `images/` directory.
 
+Generate loop-erased random walk visualization:
+```bash
+python loop_erased_walk.py
+```
+
+This creates a visualization showing the original walk, convex hull boundary, and loop-erased path.
+
 ## Simulation Results
 
 ### Multiple Random Walk Comparison
@@ -77,6 +84,17 @@ Comprehensive statistical analysis including:
 - Average final distance vs walk length
 - Theoretical √n scaling comparison
 - Distribution of final positions
+
+### Loop-Erased Random Walk
+![Loop-Erased Walk](images/loop_erased_walk.png)
+
+This visualization demonstrates loop erasure on a 2D random walk, showing:
+- **Gray path**: Original random walk (2000+ steps)
+- **Blue boundary**: Convex hull (outer boundary) of all visited points
+- **Red path**: Loop-erased walk (~200 steps, 90% reduction)
+- Loop erasure removes all cycles, creating a self-avoiding path from start to end
+
+Loop-erased random walks are important in probability theory and have connections to uniform spanning trees and the Laplacian random walk.
 
 ## Example Output
 
