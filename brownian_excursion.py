@@ -355,6 +355,97 @@ def analyze_discrete_excursion_scaling():
     
     return results
 
+def create_large_excursion_visualization():
+    """
+    Create a large discrete Brownian excursion with 10^4 steps 
+    and grid-aligned visualization.
+    """
+    print("Generating large discrete excursion (10^4 steps)...")
+    
+    np.random.seed(456)
+    random.seed(456)
+    
+    excursion = DiscreteExcursion()
+    n_steps = 10000
+    
+    x_vals, y_vals = excursion.create_discrete_excursion(n_steps)
+    properties = excursion.analyze_discrete_excursion(x_vals, y_vals)
+    
+    print(f"Large excursion properties:")
+    print(f"  Max height: {properties['max_height']:.3f}")
+    print(f"  Final position: ({properties['final_x']}, {properties['final_y']:.3f})")
+    print(f"  Area: {properties['area']:.0f}")
+    
+    # Create grid-aligned visualization
+    fig, ax = plt.subplots(1, 1, figsize=(14, 10))
+    
+    # Plot the excursion path
+    ax.plot(x_vals, y_vals, color='blue', linewidth=0.8, alpha=0.9)
+    
+    # Mark start and end points
+    ax.scatter(x_vals[0], y_vals[0], color='darkgreen', s=150, marker='o', 
+              label='Start', zorder=5, edgecolors='white', linewidth=2)
+    ax.scatter(x_vals[-1], y_vals[-1], color='darkred', s=150, marker='s', 
+              label='End', zorder=5, edgecolors='white', linewidth=2)
+    
+    # Mark maximum height
+    max_idx = properties['max_height_step']
+    ax.scatter(x_vals[max_idx], y_vals[max_idx], color='gold', s=120, marker='^',
+              label=f'Max height: {properties["max_height"]:.1f}', zorder=5, 
+              edgecolors='black', linewidth=1)
+    
+    # Add horizontal line at y=0
+    ax.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=3)
+    
+    # Get axis ranges
+    x_range = max(x_vals) - min(x_vals)
+    y_range = max(y_vals) - min(y_vals)
+    
+    # Set equal aspect ratio and aligned grid
+    ax.set_aspect('equal', adjustable='box')
+    
+    # Create grid with same spacing for both axes
+    grid_spacing = max(10, int(max(x_range, y_range) / 20))  # Adaptive grid spacing
+    
+    # Set tick positions
+    x_min, x_max = min(x_vals), max(x_vals)
+    y_min, y_max = 0, max(y_vals)
+    
+    # Extend ranges slightly for better visualization
+    x_padding = x_range * 0.05
+    y_padding = y_range * 0.05
+    
+    ax.set_xlim(x_min - x_padding, x_max + x_padding)
+    ax.set_ylim(-y_padding, y_max + y_padding)
+    
+    # Set grid with equal spacing
+    x_ticks = np.arange(int(x_min/grid_spacing)*grid_spacing, 
+                       int(x_max/grid_spacing)*grid_spacing + grid_spacing, 
+                       grid_spacing)
+    y_ticks = np.arange(0, int(y_max/grid_spacing)*grid_spacing + grid_spacing, 
+                       grid_spacing)
+    
+    ax.set_xticks(x_ticks)
+    ax.set_yticks(y_ticks)
+    
+    # Style the plot
+    ax.set_title(f'Large Discrete Excursion (N = {n_steps:,} steps)\n'
+                f'X: 1D RW on Z, Y: ||3D RW on Z³|| (Grid-Aligned)\n'
+                f'Area ≈ {properties["area"]:.0f}', fontsize=14, pad=20)
+    ax.set_xlabel('X (1D Random Walk)', fontsize=12)
+    ax.set_ylabel('Y (Distance from Origin)', fontsize=12)
+    ax.legend(loc='upper right', fontsize=11)
+    ax.grid(True, alpha=0.4, linewidth=0.8)
+    
+    # Add subtle background
+    ax.set_facecolor('#fafafa')
+    
+    plt.tight_layout()
+    plt.savefig('images/large_discrete_excursion.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    return properties
+
 if __name__ == "__main__":
     print("Discrete Brownian Excursion Simulation using Z^d Random Walks")
     print("X-axis: 1D Random Walk on Z, Y-axis: ||3D Random Walk on Z³||")
@@ -367,6 +458,11 @@ if __name__ == "__main__":
     excursions = create_discrete_excursion_visualizations()
     print(f"Generated {len(excursions)} discrete excursions")
     print("Visualization saved: images/discrete_excursions.png")
+    
+    # Generate large excursion
+    print(f"\n" + "="*65)
+    large_props = create_large_excursion_visualization()
+    print("Large excursion saved: images/large_discrete_excursion.png")
     
     # Scaling analysis
     print(f"\n" + "="*65)
