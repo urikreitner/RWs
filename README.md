@@ -13,6 +13,7 @@ This project implements multiple types of random processes on lattices with comp
 - **Loop-Erased Random Walk**: Implementation with outer boundary detection using facial walk algorithm
 - **Self-Avoiding Walk**: Non-intersecting walks on Z² with scaling analysis (ν ≈ 3/4)
 - **Critical Percolation**: Hexagonal lattice percolation at p_c = 1/2 with separating path analysis
+- **Brownian Excursion**: Upper half-plane excursions with 3D Bessel process and scaling analysis
 - **Statistical Analysis**: Distance metrics, position tracking, and Hausdorff dimension estimation
 - **Visualization**: Matplotlib plots showing walk paths, trajectories, and scaling behavior
 - **Modular Design**: Easy to extend and modify for different walk types
@@ -79,6 +80,13 @@ python self_avoiding_walk.py
 ```
 
 This creates self-avoiding walks on Z² and analyzes their scaling properties with critical exponent ν ≈ 3/4.
+
+Generate Brownian excursions in upper half-plane:
+```bash
+python brownian_excursion.py
+```
+
+This simulates excursions where x-axis follows Brownian motion and y-axis follows 3D Bessel process.
 
 ## Simulation Results
 
@@ -164,6 +172,24 @@ Self-avoiding walks of various lengths showing non-intersecting paths from origi
 - **Critical exponent**: ν ≈ 0.766 (theoretical: 3/4 = 0.75)
 
 Results show excellent agreement with theoretical predictions for 2D self-avoiding walks.
+
+### Brownian Excursions in Upper Half-Plane
+![Brownian Excursions](images/brownian_excursions.png)
+
+Brownian excursions where x-coordinate follows standard Brownian motion and y-coordinate follows 3D Bessel process:
+- **Green dot**: Starting point (always in upper half-plane)
+- **Red square**: Ending point 
+- **Gold triangle**: Maximum height achieved
+- **Shaded area**: Area under the excursion path
+
+![Excursion Scaling Analysis](images/excursion_scaling_analysis.png)
+
+**Brownian Excursion Scaling:**
+- **Maximum height**: H ∝ T^0.499 (theoretical: T^0.5) ✅
+- **Excursion area**: A ∝ T^1.034 (theoretical: T^1.5)
+- **End-to-end distance**: R ∝ T^0.501 (theoretical: T^0.5) ✅
+
+The 3D Bessel process ensures the excursion stays in the upper half-plane while exhibiting rich fractal behavior.
 
 ## Example Output
 
